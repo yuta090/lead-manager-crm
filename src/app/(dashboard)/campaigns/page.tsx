@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import {
   Send,
   FileText,
@@ -192,8 +192,10 @@ function CampaignListTab({ genreId }: { genreId: string }) {
   const [loading, setLoading] = useState(true)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const requestIdRef = useRef(0)
 
   const fetchCampaigns = useCallback(async () => {
+    const requestId = ++requestIdRef.current
     setLoading(true)
     const supabase = createClient()
     const { data, error } = await supabase
@@ -201,8 +203,11 @@ function CampaignListTab({ genreId }: { genreId: string }) {
       .select("id, genre_id, name, subject_template, body_template, body_text, status, sent_count, sent_at, created_at")
       .eq("genre_id", genreId)
       .order("created_at", { ascending: false })
+    if (requestIdRef.current !== requestId) return
     if (error) {
       toast.error("キャンペーンの取得に失敗しました")
+      setLoading(false)
+      return
     }
     setCampaigns((data as Campaign[]) ?? [])
     setLoading(false)
@@ -216,7 +221,7 @@ function CampaignListTab({ genreId }: { genreId: string }) {
     if (!deleteTargetId) return
     setDeleting(true)
     const supabase = createClient()
-    const { error } = await supabase.from("lm_campaigns").delete().eq("id", deleteTargetId)
+    const { error } = await supabase.from("lm_campaigns").delete().eq("id", deleteTargetId).eq("genre_id", genreId)
     if (error) {
       toast.error("削除に失敗しました: " + error.message)
     } else {
@@ -507,7 +512,7 @@ export default function CampaignsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">メール配信</h1>
+        <h1 className="text-2xl font-bold tracking-tight">メール配信</h1>
         <p className="text-sm text-muted-foreground">
           {currentGenre.name} のキャンペーン管理
         </p>

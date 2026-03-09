@@ -10,11 +10,11 @@ export function EmptyState({
   action?: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-      <InboxIcon className="mb-3 h-10 w-10 text-muted-foreground/50" />
-      <p className="text-sm font-medium text-muted-foreground">{title}</p>
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+      <InboxIcon className="mb-4 h-12 w-12 text-muted-foreground/30" />
+      <p className="font-medium text-muted-foreground">{title}</p>
       {description && (
-        <p className="mt-1 text-xs text-muted-foreground/70">{description}</p>
+        <p className="mt-1.5 text-sm text-muted-foreground/70">{description}</p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>

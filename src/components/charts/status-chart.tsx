@@ -1,6 +1,6 @@
 "use client"
 
-import { Bar, BarChart, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, Cell, XAxis, YAxis } from "recharts"
 import {
   ChartContainer,
   ChartTooltip,
@@ -40,7 +40,11 @@ export default function StatusChart({
         <XAxis type="number" />
         <YAxis type="category" dataKey="name" width={80} />
         <ChartTooltip content={<ChartTooltipContent />} />
-        <Bar dataKey="count" radius={[0, 4, 4, 0]} />
+        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+          {data.map((entry) => (
+            <Cell key={entry.name} fill={entry.fill} />
+          ))}
+        </Bar>
       </BarChart>
     </ChartContainer>
   )

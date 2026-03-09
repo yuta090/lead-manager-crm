@@ -157,7 +157,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold">設定</h1>
+        <h1 className="text-2xl font-bold tracking-tight">設定</h1>
         <p className="text-sm text-muted-foreground">
           システム設定・接続情報・インポート履歴
         </p>

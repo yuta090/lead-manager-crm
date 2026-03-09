@@ -17,6 +17,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -33,14 +34,29 @@ import {
 import { useGenre } from "./genre-provider"
 import { APP_VERSION } from "@/lib/format"
 
-const NAV_ITEMS = [
-  { title: "ホーム", href: "/", icon: Home },
-  { title: "企業リスト", href: "/companies", icon: Building2 },
-  { title: "メール配信", href: "/campaigns", icon: Mail },
-  { title: "CRM", href: "/crm", icon: Users },
-  { title: "ダッシュボード", href: "/dashboard", icon: BarChart3 },
-  { title: "ジャンル管理", href: "/genres", icon: FolderOpen },
-  { title: "設定", href: "/settings", icon: Settings },
+const NAV_GROUPS = [
+  {
+    label: null,
+    items: [
+      { title: "ホーム", href: "/", icon: Home },
+    ],
+  },
+  {
+    label: "営業管理",
+    items: [
+      { title: "企業リスト", href: "/companies", icon: Building2 },
+      { title: "メール配信", href: "/campaigns", icon: Mail },
+      { title: "CRM", href: "/crm", icon: Users },
+      { title: "ダッシュボード", href: "/dashboard", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "システム",
+    items: [
+      { title: "ジャンル管理", href: "/genres", icon: FolderOpen },
+      { title: "設定", href: "/settings", icon: Settings },
+    ],
+  },
 ]
 
 export function AppSidebar() {
@@ -87,34 +103,37 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Navigation */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV_ITEMS.map((item) => {
-                const isActive =
-                  item.href === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(item.href)
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      className={
-                        isActive
-                          ? "border-l-2 border-primary rounded-l-none"
-                          : ""
-                      }
-                      render={<Link href={item.href} />}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {NAV_GROUPS.map((group, gi) => (
+          <SidebarGroup key={gi}>
+            {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const isActive =
+                    item.href === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(item.href)
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        className={
+                          isActive
+                            ? "border-l-2 border-primary rounded-l-none"
+                            : ""
+                        }
+                        render={<Link href={item.href} />}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t p-3">

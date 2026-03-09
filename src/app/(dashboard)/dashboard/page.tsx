@@ -307,7 +307,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">ダッシュボード</h1>
+        <h1 className="text-2xl font-bold tracking-tight">ダッシュボード</h1>
         <p className="text-sm text-muted-foreground">
           {currentGenre.name} の詳細分析
         </p>
@@ -315,7 +315,7 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       {loading || !stats ? (
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}

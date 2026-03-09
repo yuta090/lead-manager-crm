@@ -333,7 +333,7 @@ export default function GenresPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold">ジャンル管理</h1>
+        <h1 className="text-2xl font-bold tracking-tight">ジャンル管理</h1>
         <p className="text-sm text-muted-foreground">
           ジャンルの追加・編集・タグ管理
         </p>

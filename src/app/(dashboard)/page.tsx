@@ -42,7 +42,7 @@ function WelcomeSection({ genreName }: { genreName: string }) {
   return (
     <div className="rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6">
       <p className="text-sm text-muted-foreground">{dateStr} {timeStr}</p>
-      <h1 className="mt-1 text-2xl font-bold">{greeting}</h1>
+      <h1 className="mt-1 text-2xl font-bold tracking-tight">{greeting}</h1>
       <p className="mt-0.5 text-sm text-muted-foreground">
         {genreName} の概要ダッシュボード
       </p>
@@ -221,7 +221,7 @@ export default function HomePage() {
       <WelcomeSection genreName={currentGenre.name} />
 
       {loading || !stats ? (
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}

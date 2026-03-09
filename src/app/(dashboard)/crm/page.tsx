@@ -167,7 +167,7 @@ export default function CrmPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">CRM</h1>
+        <h1 className="text-2xl font-bold tracking-tight">CRM</h1>
         <p className="text-sm text-muted-foreground">
           {currentGenre.name} - パイプライン管理
         </p>
@@ -185,11 +185,11 @@ export default function CrmPage() {
 
         <TabsContent value="pipeline">
           {loading ? (
-            <div className="grid grid-cols-5 gap-3">
+            <div className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-5 lg:overflow-visible">
               {[...Array(5)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-64 animate-pulse rounded-lg bg-muted"
+                  className="h-64 min-w-[200px] animate-pulse rounded-lg bg-muted lg:min-w-0"
                 />
               ))}
             </div>
@@ -252,7 +252,7 @@ function PipelineView({
   return (
     <div className="space-y-6">
       {/* Active pipeline columns */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-5 lg:overflow-visible">
         {PIPELINE_STATUSES.map((status) => {
           const items = columnData[status] ?? []
           const display = items.slice(0, MAX_CARDS_PER_COLUMN)
@@ -262,7 +262,7 @@ function PipelineView({
           return (
             <div
               key={status}
-              className="flex flex-col gap-2 overflow-hidden rounded-lg bg-muted/30"
+              className="flex min-w-[200px] flex-col gap-2 overflow-hidden rounded-lg bg-muted/30 lg:min-w-0"
             >
               {/* Colored top border */}
               <div
