@@ -882,8 +882,10 @@ function ActivityForm({
 function ActivityHistory({ companyId, refreshKey }: { companyId: string; refreshKey: number }) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const activityRequestIdRef = useRef(0)
 
   const fetchActivities = useCallback(async () => {
+    const requestId = ++activityRequestIdRef.current
     setLoading(true)
     const supabase = createClient()
     const { data, error } = await supabase
@@ -892,6 +894,7 @@ function ActivityHistory({ companyId, refreshKey }: { companyId: string; refresh
       .eq("company_id", companyId)
       .order("created_at", { ascending: false })
       .limit(30)
+    if (activityRequestIdRef.current !== requestId) return
     if (error) {
       toast.error("活動履歴の取得に失敗しました")
       setLoading(false)

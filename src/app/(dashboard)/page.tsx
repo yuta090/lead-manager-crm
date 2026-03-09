@@ -61,17 +61,26 @@ type RecentActivity = {
 function RecentActivitySection({ genreId }: { genreId: string }) {
   const [activities, setActivities] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
+  const activityRequestIdRef = useRef(0)
 
   useEffect(() => {
+    const requestId = ++activityRequestIdRef.current
     ;(async () => {
       setLoading(true)
       const supabase = createClient()
 
       // Fetch recent activities joined with companies in this genre
-      const { data: companyData } = await supabase
+      const { data: companyData, error: companyError } = await supabase
         .from("lm_companies")
         .select("id, name")
         .eq("genre_id", genreId)
+
+      if (activityRequestIdRef.current !== requestId) return
+      if (companyError) {
+        toast.error("アクティビティの取得に失敗しました")
+        setLoading(false)
+        return
+      }
 
       if (!companyData || companyData.length === 0) {
         setActivities([])
@@ -82,12 +91,19 @@ function RecentActivitySection({ genreId }: { genreId: string }) {
       const companyMap = new Map(companyData.map((c: { id: string; name: string }) => [c.id, c.name]))
       const companyIds = companyData.map((c: { id: string; name: string }) => c.id)
 
-      const { data: activityData } = await supabase
+      const { data: activityData, error: activityError } = await supabase
         .from("lm_activities")
         .select("id, company_id, type, description, created_at")
         .in("company_id", companyIds)
         .order("created_at", { ascending: false })
         .limit(5)
+
+      if (activityRequestIdRef.current !== requestId) return
+      if (activityError) {
+        toast.error("アクティビティの取得に失敗しました")
+        setLoading(false)
+        return
+      }
 
       type ActivityRow = { id: string; company_id: string; type: string; description: string | null; created_at: string }
       const mapped: RecentActivity[] = (activityData ?? []).map((a: ActivityRow) => ({

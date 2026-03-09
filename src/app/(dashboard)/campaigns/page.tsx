@@ -358,6 +358,12 @@ function StatsTab({ genreId }: { genreId: string }) {
         .in("status", ["送信済", "送信中"])
         .order("sent_at", { ascending: false })
 
+      if (campaignsRes.error) {
+        toast.error("統計データの取得に失敗しました")
+        setLoading(false)
+        return
+      }
+
       const sentCampaigns = (campaignsRes.data ?? []) as Pick<
         Campaign,
         "id" | "name" | "sent_at" | "sent_count"
@@ -375,6 +381,12 @@ function StatsTab({ genreId }: { genreId: string }) {
         .from("lm_email_logs")
         .select("campaign_id, status, opened_at, clicked_at")
         .in("campaign_id", campaignIds)
+
+      if (logsRes.error) {
+        toast.error("メールログの取得に失敗しました")
+        setLoading(false)
+        return
+      }
 
       const emailLogs = (logsRes.data ?? []) as Pick<
         EmailLog,

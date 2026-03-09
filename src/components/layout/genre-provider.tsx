@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react"
+import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import type { Genre } from "@/types/database"
 
@@ -36,6 +37,7 @@ export function GenreProvider({ children }: { children: React.ReactNode }) {
       .select("id, name, description, created_at")
       .order("name")
     if (error) {
+      toast.error("ジャンルの取得に失敗しました")
       setLoading(false)
       return
     }
