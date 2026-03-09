@@ -67,6 +67,7 @@ function RecentActivitySection({ genreId }: { genreId: string }) {
     const requestId = ++activityRequestIdRef.current
     ;(async () => {
       setLoading(true)
+      setActivities([])
       const supabase = createClient()
 
       // Fetch recent activities joined with companies in this genre

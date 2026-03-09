@@ -887,6 +887,7 @@ function ActivityHistory({ companyId, refreshKey }: { companyId: string; refresh
   const fetchActivities = useCallback(async () => {
     const requestId = ++activityRequestIdRef.current
     setLoading(true)
+    setActivities([])
     const supabase = createClient()
     const { data, error } = await supabase
       .from("lm_activities")

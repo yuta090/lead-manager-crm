@@ -344,10 +344,13 @@ type CampaignStats = {
 function StatsTab({ genreId }: { genreId: string }) {
   const [stats, setStats] = useState<CampaignStats[]>([])
   const [loading, setLoading] = useState(true)
+  const statsRequestIdRef = useRef(0)
 
   useEffect(() => {
+    const requestId = ++statsRequestIdRef.current
     ;(async () => {
       setLoading(true)
+      setStats([])
       const supabase = createClient()
 
       // First fetch campaigns to get their IDs
@@ -358,6 +361,7 @@ function StatsTab({ genreId }: { genreId: string }) {
         .in("status", ["送信済", "送信中"])
         .order("sent_at", { ascending: false })
 
+      if (statsRequestIdRef.current !== requestId) return
       if (campaignsRes.error) {
         toast.error("統計データの取得に失敗しました")
         setLoading(false)
@@ -382,6 +386,7 @@ function StatsTab({ genreId }: { genreId: string }) {
         .select("campaign_id, status, opened_at, clicked_at")
         .in("campaign_id", campaignIds)
 
+      if (statsRequestIdRef.current !== requestId) return
       if (logsRes.error) {
         toast.error("メールログの取得に失敗しました")
         setLoading(false)
