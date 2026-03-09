@@ -28,6 +28,7 @@ import { formatDate, toLocalDateString, addDays } from "@/lib/format"
 import { useGenre } from "@/components/layout/genre-provider"
 import { StatusBadge, PriorityDot } from "@/components/status-badge"
 import { EmptyState } from "@/components/empty-state"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -151,7 +152,7 @@ export default function CrmPage() {
 
   if (genreLoading) {
     return (
-      <div className="animate-pulse text-muted-foreground">読み込み中...</div>
+      <LoadingSpinner />
     )
   }
 

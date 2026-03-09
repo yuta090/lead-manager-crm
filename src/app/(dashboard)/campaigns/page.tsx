@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/client"
 import { formatDate } from "@/lib/format"
 import { useGenre } from "@/components/layout/genre-provider"
 import { EmptyState } from "@/components/empty-state"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -513,7 +514,7 @@ export default function CampaignsPage() {
 
   if (genreLoading) {
     return (
-      <div className="animate-pulse text-muted-foreground">読み込み中...</div>
+      <LoadingSpinner />
     )
   }
 

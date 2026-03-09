@@ -14,8 +14,9 @@ import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { useGenre } from "@/components/layout/genre-provider"
 import { EmptyState } from "@/components/empty-state"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { KpiCard, KpiGrid } from "@/components/kpi-card"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -291,7 +292,7 @@ export default function DashboardPage() {
 
   if (genreLoading) {
     return (
-      <div className="animate-pulse text-muted-foreground">読み込み中...</div>
+      <LoadingSpinner />
     )
   }
 
@@ -375,6 +376,7 @@ export default function DashboardPage() {
             <Card>
               <CardHeader>
                 <CardTitle>ステータス分布</CardTitle>
+                <CardDescription>企業のステータス別内訳</CardDescription>
               </CardHeader>
               <CardContent>
                 <StatusChart statusCounts={stats.statusCounts} />
@@ -383,6 +385,7 @@ export default function DashboardPage() {
             <Card>
               <CardHeader>
                 <CardTitle>データソース別</CardTitle>
+                <CardDescription>取得元サービス別の企業数</CardDescription>
               </CardHeader>
               <CardContent>
                 <SourceChart sourceCounts={stats.sourceCounts} />

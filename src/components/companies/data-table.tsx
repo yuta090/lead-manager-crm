@@ -113,7 +113,7 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
                   onClick={() => router.push(`/crm?company=${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (

@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { useGenre } from "@/components/layout/genre-provider"
 import { EmptyState } from "@/components/empty-state"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { DataTable } from "@/components/companies/data-table"
 import { columns } from "@/components/companies/columns"
 import type { Company } from "@/types/database"
@@ -40,7 +41,7 @@ export default function CompaniesPage() {
 
   if (genreLoading) {
     return (
-      <div className="animate-pulse text-muted-foreground">読み込み中...</div>
+      <LoadingSpinner />
     )
   }
 

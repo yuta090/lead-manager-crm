@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useGenre } from "@/components/layout/genre-provider"
 import { KpiCard, KpiGrid } from "@/components/kpi-card"
 import { EmptyState } from "@/components/empty-state"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatDate } from "@/lib/format"
 
@@ -221,7 +222,7 @@ export default function HomePage() {
   }, [currentGenre])
 
   if (genreLoading) {
-    return <div className="animate-pulse text-muted-foreground">読み込み中...</div>
+    return <LoadingSpinner />
   }
 
   if (!currentGenre) {
