@@ -7,22 +7,40 @@ type KpiCardProps = {
   icon?: React.ReactNode
 }
 
+function formatValue(value: string | number): string {
+  if (typeof value === "number") {
+    return value.toLocaleString("ja-JP")
+  }
+  return value
+}
+
 export function KpiCard({ label, value, color, icon }: KpiCardProps) {
   return (
-    <Card>
+    <Card className="relative overflow-hidden transition-shadow duration-200 hover:shadow-md">
+      {/* Bottom accent border */}
+      {color && (
+        <div
+          className="absolute bottom-0 left-0 right-0 h-0.5"
+          style={{ background: `linear-gradient(90deg, ${color}, ${color}88)` }}
+        />
+      )}
       <CardContent className="flex items-center gap-3 p-4">
         {icon && (
           <div
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-            style={{ backgroundColor: color ? `${color}15` : undefined }}
+            style={{
+              background: color
+                ? `linear-gradient(135deg, ${color}18, ${color}08)`
+                : undefined,
+            }}
           >
             {icon}
           </div>
         )}
         <div>
           <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-2xl font-bold" style={{ color }}>
-            {value}
+          <p className="text-2xl font-bold tracking-tight" style={{ color }}>
+            {formatValue(value)}
           </p>
         </div>
       </CardContent>

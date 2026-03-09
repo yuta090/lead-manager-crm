@@ -49,9 +49,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-4 py-3">
+      <SidebarHeader className="border-b px-4 py-3 bg-gradient-to-b from-primary/5 to-transparent">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-sm">
             LM
           </div>
           <div>
@@ -99,6 +99,11 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       isActive={isActive}
+                      className={
+                        isActive
+                          ? "border-l-2 border-primary rounded-l-none"
+                          : ""
+                      }
                       render={<Link href={item.href} />}
                     >
                       <item.icon className="h-4 w-4" />

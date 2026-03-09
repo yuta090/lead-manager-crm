@@ -10,7 +10,7 @@ import {
   type ColumnFiltersState,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import {
   Table,
@@ -37,7 +37,10 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
   const [globalFilter, setGlobalFilter] = useState("")
   const [emailOnly, setEmailOnly] = useState(false)
 
-  const filteredData = emailOnly ? data.filter((c) => c.email) : data
+  const filteredData = useMemo(
+    () => emailOnly ? data.filter((c) => c.email) : data,
+    [data, emailOnly]
+  )
 
   const table = useReactTable({
     data: filteredData,
@@ -111,7 +114,7 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer"
-                  onClick={() => router.push(`/companies/${row.original.id}`)}
+                  onClick={() => router.push(`/crm?company=${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

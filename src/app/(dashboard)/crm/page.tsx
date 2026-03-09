@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo } from "react"
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import {
   Building2,
   Phone,
@@ -21,6 +21,8 @@ import {
   Clock,
   CalendarCheck,
 } from "lucide-react"
+import { toast } from "sonner"
+import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { formatDate, toLocalDateString, addDays } from "@/lib/format"
 import { useGenre } from "@/components/layout/genre-provider"
@@ -40,7 +42,6 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select"
-import { toast } from "sonner"
 import type { Company, Activity, CompanyStatus } from "@/types/database"
 import { STATUS_ORDER, STATUS_CONFIG } from "@/types/database"
 
@@ -98,21 +99,35 @@ function truncate(text: string | null, max: number): string {
 
 export default function CrmPage() {
   const { currentGenre, loading: genreLoading } = useGenre()
+  const searchParams = useSearchParams()
+  const supabase = createClient()
+  const requestIdRef = useRef(0)
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<string | number>("pipeline")
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<string | number>(() => {
+    const companyParam = searchParams.get("company")
+    return companyParam ? "detail" : "pipeline"
+  })
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(() => {
+    return searchParams.get("company")
+  })
 
   const fetchCompanies = useCallback(async () => {
     if (!currentGenre) return
+    const requestId = ++requestIdRef.current
     setLoading(true)
-    const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("lm_companies")
-      .select("*")
+      .select("id, name, status, email, memo, priority, next_followup_at, address, phone, website, prefecture, screening_result, screening_score, screening_reason, updated_at")
       .eq("genre_id", currentGenre.id)
       .order("updated_at", { ascending: false })
-    setCompanies(data ?? [])
+    if (requestIdRef.current !== requestId) return
+    if (error) {
+      toast.error("企業データの取得に失敗しました")
+      setLoading(false)
+      return
+    }
+    setCompanies((data as Company[]) ?? [])
     setLoading(false)
   }, [currentGenre])
 
@@ -242,38 +257,58 @@ function PipelineView({
           const items = columnData[status] ?? []
           const display = items.slice(0, MAX_CARDS_PER_COLUMN)
           const overflow = items.length - MAX_CARDS_PER_COLUMN
+          const config = STATUS_CONFIG[status]
 
           return (
             <div
               key={status}
-              className="flex flex-col gap-2 rounded-lg bg-muted/30 p-2"
+              className="flex flex-col gap-2 overflow-hidden rounded-lg bg-muted/30"
             >
+              {/* Colored top border */}
+              <div
+                className="h-1"
+                style={{ background: `linear-gradient(90deg, ${config.dot}, ${config.dot}60)` }}
+              />
+
               {/* Column header */}
-              <div className="flex items-center justify-between px-1">
+              <div className="flex items-center justify-between px-3">
                 <StatusBadge status={status} />
-                <Badge variant="secondary" className="text-xs">
+                <span
+                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold"
+                  style={{
+                    color: config.color,
+                    backgroundColor: config.bg,
+                  }}
+                >
                   {items.length}
-                </Badge>
+                </span>
               </div>
 
               {/* Cards */}
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 px-2 pb-2">
                 {display.length === 0 ? (
-                  <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
-                    企業なし
+                  <div
+                    className="flex flex-col items-center justify-center rounded-md border-2 border-dashed p-6 text-center"
+                    style={{ borderColor: `${config.dot}30` }}
+                  >
+                    <div
+                      className="mb-1.5 h-6 w-6 rounded-full opacity-30"
+                      style={{ backgroundColor: config.dot }}
+                    />
+                    <span className="text-xs text-muted-foreground">企業なし</span>
                   </div>
                 ) : (
                   display.map((company) => (
                     <PipelineCard
                       key={company.id}
                       company={company}
-                      onClick={() => onCardClick(company.id)}
+                      onClick={onCardClick}
                     />
                   ))
                 )}
                 {overflow > 0 && (
                   <button
-                    className="rounded-md border border-dashed p-1.5 text-center text-xs text-muted-foreground hover:bg-muted/50"
+                    className="rounded-md border border-dashed p-1.5 text-center text-xs text-muted-foreground transition-colors hover:bg-muted/50"
                     onClick={() => {
                       if (items.length > 0) onCardClick(items[0].id)
                     }}
@@ -322,7 +357,7 @@ function PipelineView({
                         <PipelineCard
                           key={company.id}
                           company={company}
-                          onClick={() => onCardClick(company.id)}
+                          onClick={onCardClick}
                         />
                       ))}
                       {items.length > MAX_CARDS_PER_COLUMN && (
@@ -342,17 +377,17 @@ function PipelineView({
   )
 }
 
-function PipelineCard({
+const PipelineCard = React.memo(function PipelineCard({
   company,
   onClick,
 }: {
   company: Company
-  onClick: () => void
+  onClick: (id: string) => void
 }) {
   return (
     <button
-      className="flex flex-col gap-1 rounded-md border bg-card p-2.5 text-left shadow-sm transition-colors hover:bg-accent/50"
-      onClick={onClick}
+      className="flex flex-col gap-1 rounded-md border bg-card p-2.5 text-left shadow-sm transition-all duration-150 hover:bg-accent/50 hover:shadow-md"
+      onClick={() => onClick(company.id)}
     >
       <div className="flex items-center gap-1.5">
         <PriorityDot priority={company.priority} />
@@ -370,7 +405,7 @@ function PipelineCard({
       )}
     </button>
   )
-}
+})
 
 // ── Company Detail View ──
 
@@ -418,25 +453,40 @@ function CompanyDetailView({
           description="上のドロップダウンから企業を選択すると詳細が表示されます"
         />
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Left side */}
-          <div className="space-y-4">
-            <CompanyInfoCard company={company} />
-            <CompanyStatusControls
-              company={company}
-              onCompanyUpdate={onCompanyUpdate}
-            />
-          </div>
-          {/* Right side */}
-          <div className="space-y-4">
-            <ActivityForm
-              companyId={company.id}
-              onActivityAdded={() => {}}
-            />
-            <ActivityHistory companyId={company.id} />
-          </div>
-        </div>
+        <CompanyDetailContent
+          company={company}
+          onCompanyUpdate={onCompanyUpdate}
+        />
       )}
+    </div>
+  )
+}
+
+function CompanyDetailContent({
+  company,
+  onCompanyUpdate,
+}: {
+  company: Company
+  onCompanyUpdate: (company: Company) => void
+}) {
+  const [activityVersion, setActivityVersion] = useState(0)
+
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="space-y-4">
+        <CompanyInfoCard company={company} />
+        <CompanyStatusControls
+          company={company}
+          onCompanyUpdate={onCompanyUpdate}
+        />
+      </div>
+      <div className="space-y-4">
+        <ActivityForm
+          companyId={company.id}
+          onActivityAdded={() => setActivityVersion((v) => v + 1)}
+        />
+        <ActivityHistory companyId={company.id} refreshKey={activityVersion} />
+      </div>
     </div>
   )
 }
@@ -469,19 +519,30 @@ function CompanyInfoCard({ company }: { company: Company }) {
             <span className="truncate">{company.email}</span>
           </div>
         )}
-        {company.website && (
-          <div className="flex items-center gap-2 text-sm">
-            <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <a
-              href={company.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="truncate text-blue-600 hover:underline"
-            >
-              {company.website}
-            </a>
-          </div>
-        )}
+        {company.website && (() => {
+          let isSafe = false
+          try {
+            const url = new URL(company.website)
+            isSafe = url.protocol === "http:" || url.protocol === "https:"
+          } catch {}
+          return (
+            <div className="flex items-center gap-2 text-sm">
+              <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {isSafe ? (
+                <a
+                  href={company.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate text-blue-600 hover:underline"
+                >
+                  {company.website}
+                </a>
+              ) : (
+                <span className="truncate text-muted-foreground">{company.website}</span>
+              )}
+            </div>
+          )
+        })()}
         {company.prefecture && (
           <div className="flex items-center gap-2 text-sm">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -705,7 +766,12 @@ function ActivityForm({
 }) {
   const [type, setType] = useState<ActivityTypeValue>("メモ")
   const [description, setDescription] = useState("")
-  const [createdBy, setCreatedBy] = useState("")
+  const [createdBy, setCreatedBy] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("lm_staff_name") ?? ""
+    }
+    return ""
+  })
   const [submitting, setSubmitting] = useState(false)
 
   // Reset form when company changes
@@ -813,30 +879,39 @@ function ActivityForm({
 
 // ── Activity History ──
 
-function ActivityHistory({ companyId }: { companyId: string }) {
+function ActivityHistory({ companyId, refreshKey }: { companyId: string; refreshKey: number }) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchActivities = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("lm_activities")
-      .select("*")
+      .select("id, company_id, type, description, created_by, created_at")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false })
       .limit(30)
+    if (error) {
+      toast.error("活動履歴の取得に失敗しました")
+      setLoading(false)
+      return
+    }
     setActivities(data ?? [])
     setLoading(false)
   }, [companyId])
 
   useEffect(() => {
     fetchActivities()
-  }, [fetchActivities])
+  }, [fetchActivities, refreshKey])
 
-  // Refresh when activities are added (poll on companyId change)
+  // Poll when tab is visible (reduced frequency since refreshKey handles immediate updates)
   useEffect(() => {
-    const interval = setInterval(fetchActivities, 5000)
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchActivities()
+      }
+    }, 15000)
     return () => clearInterval(interval)
   }, [fetchActivities])
 

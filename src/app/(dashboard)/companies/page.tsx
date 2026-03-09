@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
+import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { useGenre } from "@/components/layout/genre-provider"
 import { EmptyState } from "@/components/empty-state"
@@ -10,20 +11,28 @@ import type { Company } from "@/types/database"
 
 export default function CompaniesPage() {
   const { currentGenre, loading: genreLoading } = useGenre()
+  const supabase = createClient()
+  const requestIdRef = useRef(0)
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!currentGenre) return
-    const supabase = createClient()
+    const requestId = ++requestIdRef.current
     ;(async () => {
       setLoading(true)
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("lm_companies")
-        .select("*")
+        .select("id, name, status, email, phone, prefecture, priority, address, website, created_at")
         .eq("genre_id", currentGenre.id)
         .order("created_at", { ascending: false })
 
+      if (requestIdRef.current !== requestId) return
+      if (error) {
+        toast.error("企業データの取得に失敗しました")
+        setLoading(false)
+        return
+      }
       setCompanies((data as Company[]) ?? [])
       setLoading(false)
     })()

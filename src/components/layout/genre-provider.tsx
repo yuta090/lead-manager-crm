@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { Genre } from "@/types/database"
 
@@ -28,13 +28,17 @@ export function GenreProvider({ children }: { children: React.ReactNode }) {
   const [genres, setGenres] = useState<Genre[]>([])
   const [currentGenreId, setCurrentGenreId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabaseRef = useRef(createClient())
+  const supabase = createClient()
 
   const fetchGenres = useCallback(async () => {
-    const { data } = await supabaseRef.current
+    const { data, error } = await supabase
       .from("lm_genres")
       .select("id, name, description, created_at")
       .order("name")
+    if (error) {
+      setLoading(false)
+      return
+    }
     const list = (data ?? []) as Genre[]
     setGenres(list)
     if (list.length > 0) {

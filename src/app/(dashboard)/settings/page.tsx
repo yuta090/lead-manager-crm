@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback } from "react"
 import {
   Settings,
   Mail,
@@ -39,8 +39,7 @@ function maskApiKey(key: string | undefined): string {
 }
 
 export default function SettingsPage() {
-  const supabaseRef = useRef(createClient())
-  const supabase = supabaseRef.current
+  const supabase = createClient()
 
   // Staff settings
   const [staffName, setStaffName] = useState("")
@@ -112,11 +111,17 @@ export default function SettingsPage() {
   const fetchImports = useCallback(async () => {
     setImportsLoading(true)
 
-    const { data: logsData } = await supabase
+    const { data: logsData, error: logsError } = await supabase
       .from("lm_import_logs")
-      .select("*")
+      .select("id, genre_id, filename, total_rows, imported_rows, skipped_rows, duplicate_rows, imported_at")
       .order("imported_at", { ascending: false })
       .limit(50)
+
+    if (logsError) {
+      toast.error("インポート履歴の取得に失敗しました")
+      setImportsLoading(false)
+      return
+    }
 
     const logs = (logsData ?? []) as ImportLog[]
 

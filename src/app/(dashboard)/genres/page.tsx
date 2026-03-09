@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback } from "react"
 import {
   FolderOpen,
   Plus,
@@ -71,8 +71,7 @@ const TAG_COLORS = [
 
 export default function GenresPage() {
   const { genres, refresh } = useGenre()
-  const supabaseRef = useRef(createClient())
-  const supabase = supabaseRef.current
+  const supabase = createClient()
 
   const [genreStats, setGenreStats] = useState<GenreStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,32 +96,53 @@ export default function GenresPage() {
   const [deleteTagId, setDeleteTagId] = useState<string | null>(null)
   const [deletingTag, setDeletingTag] = useState(false)
 
-  // Fetch genre statistics
+  // Fetch genre statistics (bulk queries instead of per-genre loop)
   const fetchStats = useCallback(async () => {
     setLoading(true)
-    const statsArr: GenreStats[] = []
+    const genreIds = genres.map((g) => g.id)
 
-    for (const genre of genres) {
-      const [companiesRes, campaignsRes] = await Promise.all([
-        supabase
-          .from("lm_companies")
-          .select("id, status, email")
-          .eq("genre_id", genre.id),
-        supabase
-          .from("lm_campaigns")
-          .select("id")
-          .eq("genre_id", genre.id),
-      ])
+    const [companiesRes, campaignsRes] = await Promise.all([
+      supabase
+        .from("lm_companies")
+        .select("genre_id, status, email")
+        .in("genre_id", genreIds),
+      supabase
+        .from("lm_campaigns")
+        .select("genre_id")
+        .in("genre_id", genreIds),
+    ])
 
-      const companies = companiesRes.data ?? []
-      const campaigns = campaignsRes.data ?? []
+    if (companiesRes.error || campaignsRes.error) {
+      toast.error("ジャンル統計の取得に失敗しました")
+      setLoading(false)
+      return
+    }
 
+    const allCompanies = (companiesRes.data ?? []) as { genre_id: string; status: string; email: string | null }[]
+    const allCampaigns = (campaignsRes.data ?? []) as { genre_id: string }[]
+
+    // Group companies by genre_id
+    const companiesByGenre = new Map<string, typeof allCompanies>()
+    for (const c of allCompanies) {
+      const arr = companiesByGenre.get(c.genre_id) ?? []
+      arr.push(c)
+      companiesByGenre.set(c.genre_id, arr)
+    }
+
+    // Count campaigns by genre_id
+    const campaignCountByGenre = new Map<string, number>()
+    for (const c of allCampaigns) {
+      campaignCountByGenre.set(c.genre_id, (campaignCountByGenre.get(c.genre_id) ?? 0) + 1)
+    }
+
+    const statsArr: GenreStats[] = genres.map((genre) => {
+      const companies = companiesByGenre.get(genre.id) ?? []
       const statusMap: Record<string, number> = {}
       for (const c of companies) {
         statusMap[c.status] = (statusMap[c.status] ?? 0) + 1
       }
 
-      statsArr.push({
+      return {
         id: genre.id,
         name: genre.name,
         description: genre.description,
@@ -131,9 +151,9 @@ export default function GenresPage() {
         engaged: statusMap["反応あり"] ?? 0,
         negotiating: statusMap["商談中"] ?? 0,
         closed: statusMap["成約"] ?? 0,
-        campaignCount: campaigns.length,
-      })
-    }
+        campaignCount: campaignCountByGenre.get(genre.id) ?? 0,
+      }
+    })
 
     setGenreStats(statsArr)
     setLoading(false)
@@ -147,28 +167,46 @@ export default function GenresPage() {
     }
   }, [genres]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch tags for selected genre
+  // Fetch tags for selected genre (batch usage count query)
   const fetchTags = useCallback(
     async (genreId: string) => {
       setTagsLoading(true)
-      const { data: tagsData } = await supabase
+      const { data: tagsData, error: tagsError } = await supabase
         .from("lm_tags")
-        .select("*")
+        .select("id, genre_id, name, color, created_at")
         .eq("genre_id", genreId)
         .order("name")
 
-      const tagsList = tagsData ?? []
-
-      // Fetch usage counts for each tag
-      const tagsWithCounts: (Tag & { usageCount: number })[] = []
-      for (const tag of tagsList) {
-        const { count } = await supabase
-          .from("lm_company_tags")
-          .select("*", { count: "exact", head: true })
-          .eq("tag_id", tag.id)
-
-        tagsWithCounts.push({ ...tag, usageCount: count ?? 0 })
+      if (tagsError) {
+        toast.error("タグの取得に失敗しました")
+        setTagsLoading(false)
+        return
       }
+
+      const tagsList = (tagsData ?? []) as Tag[]
+
+      if (tagsList.length === 0) {
+        setTags([])
+        setTagsLoading(false)
+        return
+      }
+
+      // Batch-fetch tag usage counts
+      const tagIds = tagsList.map((t) => t.id)
+      const { data: tagUsage } = await supabase
+        .from("lm_company_tags")
+        .select("tag_id")
+        .in("tag_id", tagIds)
+
+      // Count client-side
+      const usageCountMap = new Map<string, number>()
+      for (const row of tagUsage ?? []) {
+        usageCountMap.set(row.tag_id, (usageCountMap.get(row.tag_id) ?? 0) + 1)
+      }
+
+      const tagsWithCounts: (Tag & { usageCount: number })[] = tagsList.map(
+        (tag) => ({ ...tag, usageCount: usageCountMap.get(tag.id) ?? 0 })
+      )
 
       setTags(tagsWithCounts)
       setTagsLoading(false)

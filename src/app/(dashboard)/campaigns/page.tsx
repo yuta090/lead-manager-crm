@@ -196,11 +196,14 @@ function CampaignListTab({ genreId }: { genreId: string }) {
   const fetchCampaigns = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("lm_campaigns")
-      .select("*")
+      .select("id, genre_id, name, subject_template, body_template, body_text, status, sent_count, sent_at, created_at")
       .eq("genre_id", genreId)
       .order("created_at", { ascending: false })
+    if (error) {
+      toast.error("キャンペーンの取得に失敗しました")
+    }
     setCampaigns((data as Campaign[]) ?? [])
     setLoading(false)
   }, [genreId])
@@ -342,15 +345,15 @@ function StatsTab({ genreId }: { genreId: string }) {
       setLoading(true)
       const supabase = createClient()
 
-      // Fetch sent campaigns
-      const { data: campaigns } = await supabase
+      // First fetch campaigns to get their IDs
+      const campaignsRes = await supabase
         .from("lm_campaigns")
         .select("id, name, sent_at, sent_count")
         .eq("genre_id", genreId)
         .in("status", ["送信済", "送信中"])
         .order("sent_at", { ascending: false })
 
-      const sentCampaigns = (campaigns ?? []) as Pick<
+      const sentCampaigns = (campaignsRes.data ?? []) as Pick<
         Campaign,
         "id" | "name" | "sent_at" | "sent_count"
       >[]
@@ -361,14 +364,14 @@ function StatsTab({ genreId }: { genreId: string }) {
         return
       }
 
-      // Fetch email logs for these campaigns
+      // Fetch email logs only for relevant campaigns (server-side filter)
       const campaignIds = sentCampaigns.map((c) => c.id)
-      const { data: logs } = await supabase
+      const logsRes = await supabase
         .from("lm_email_logs")
         .select("campaign_id, status, opened_at, clicked_at")
         .in("campaign_id", campaignIds)
 
-      const emailLogs = (logs ?? []) as Pick<
+      const emailLogs = (logsRes.data ?? []) as Pick<
         EmailLog,
         "campaign_id" | "status" | "opened_at" | "clicked_at"
       >[]
