@@ -185,7 +185,7 @@ function CsvImportDialog() {
 }
 
 const addCompanySchema = z.object({
-  name: z.string().min(1, "会社名は必須です"),
+  name: z.string().trim().min(1, "会社名は必須です"),
   email: z.string().email("有効なメールアドレスを入力").or(z.literal("")).optional(),
   phone: z.string().optional(),
   prefecture: z.string().optional(),
@@ -224,33 +224,38 @@ function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded?: () => void }) {
     }
 
     setSaving(true)
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    const insertData = {
-      genre_id: currentGenre.id,
-      name: data.name,
-      email: data.email || null,
-      phone: data.phone || null,
-      prefecture: data.prefecture || null,
-      memo: data.memo || null,
-      status: "新規" as const,
-      priority: "通常" as const,
-      source: "手動登録",
-      scraping_status: "未処理",
-      form_found: false,
-    }
+      const insertData = {
+        genre_id: currentGenre.id,
+        name: data.name.trim(),
+        email: data.email?.trim() || null,
+        phone: data.phone?.trim() || null,
+        prefecture: data.prefecture?.trim() || null,
+        memo: data.memo?.trim() || null,
+        status: "新規" as const,
+        priority: "通常" as const,
+        source: "手動登録",
+        scraping_status: "未処理",
+        form_found: false,
+      }
 
-    const { error } = await supabase.from("lm_companies").insert(insertData)
+      const { error } = await supabase.from("lm_companies").insert(insertData)
 
-    setSaving(false)
-    if (error) {
+      if (error) {
+        toast.error("企業の追加に失敗しました")
+        return
+      }
+
+      toast.success("企業を追加しました")
+      setOpen(false)
+      onCompanyAdded?.()
+    } catch (e) {
       toast.error("企業の追加に失敗しました")
-      return
+    } finally {
+      setSaving(false)
     }
-
-    toast.success("企業を追加しました")
-    setOpen(false)
-    onCompanyAdded?.()
   }
 
   return (
