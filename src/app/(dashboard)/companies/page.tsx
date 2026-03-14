@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { Suspense, useEffect, useState, useRef } from "react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { useGenre } from "@/components/layout/genre-provider"
@@ -63,7 +63,9 @@ export default function CompaniesPage() {
         </p>
       </div>
 
-      <DataTable columns={columns} data={companies} loading={loading} />
+      <Suspense fallback={<LoadingSpinner />}>
+        <DataTable columns={columns} data={companies} loading={loading} />
+      </Suspense>
     </div>
   )
 }
