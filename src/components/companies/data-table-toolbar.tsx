@@ -231,7 +231,7 @@ export function DataTableToolbar({
         <div className="relative max-w-xs flex-1">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="会社名で検索..."
+            placeholder="会社名・メール・電話で検索..."
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-8"
