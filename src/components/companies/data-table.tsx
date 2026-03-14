@@ -100,6 +100,12 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
     isSyncingFromUrl.current = true
     lastPushedQs.current = currentQs
 
+    // Cancel any pending debounced URL update to prevent stale value overwrite
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+
     setGlobalFilter(q)
     setEmailOnly(hasEmail)
     if (status) {
