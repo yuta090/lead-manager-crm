@@ -57,8 +57,12 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: (row, _columnId, filterValue: string) => {
-      const name = (row.getValue("name") as string) ?? ""
-      return name.toLowerCase().includes(filterValue.toLowerCase())
+      const search = filterValue.toLowerCase()
+      const fields = ["name", "email", "phone", "address", "prefecture", "website"] as const
+      return fields.some((field) => {
+        const value = row.original[field]
+        return value ? value.toLowerCase().includes(search) : false
+      })
     },
   })
 
