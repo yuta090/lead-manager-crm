@@ -177,6 +177,8 @@ export default function CrmPage() {
       setActiveTab(tab)
     } else if (company) {
       setActiveTab("detail")
+    } else {
+      setActiveTab("pipeline")
     }
     setSelectedCompanyId(company)
   }, [searchParams])
