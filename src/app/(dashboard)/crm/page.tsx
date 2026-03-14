@@ -43,8 +43,24 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover"
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command"
+import { cn } from "@/lib/utils"
+import { Check, ChevronsUpDown } from "lucide-react"
 import type { Company, Activity, CompanyStatus } from "@/types/database"
 import { STATUS_ORDER, STATUS_CONFIG } from "@/types/database"
+import { CompanyEditSheet } from "@/features/crm/components/detail/company-edit-sheet"
 
 // ── Constants ──
 
@@ -101,17 +117,34 @@ function truncate(text: string | null, max: number): string {
 export default function CrmPage() {
   const { currentGenre, loading: genreLoading } = useGenre()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const supabase = createClient()
   const requestIdRef = useRef(0)
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
+
+  // URL state: tab, company
+  const tabFromUrl = searchParams.get("tab") as "pipeline" | "detail" | "followup" | null
+  const companyFromUrl = searchParams.get("company")
+
   const [activeTab, setActiveTab] = useState<string | number>(() => {
-    const companyParam = searchParams.get("company")
-    return companyParam ? "detail" : "pipeline"
+    if (tabFromUrl) return tabFromUrl
+    return companyFromUrl ? "detail" : "pipeline"
   })
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(() => {
-    return searchParams.get("company")
+    return companyFromUrl
   })
+
+  // URL sync helper
+  const updateUrl = useCallback((params: Record<string, string | null>) => {
+    const newParams = new URLSearchParams(searchParams.toString())
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined) newParams.delete(key)
+      else newParams.set(key, value)
+    })
+    const qs = newParams.toString()
+    router.replace(qs ? `/crm?${qs}` : "/crm", { scroll: false })
+  }, [searchParams, router])
 
   const fetchCompanies = useCallback(async () => {
     if (!currentGenre) return
@@ -136,10 +169,23 @@ export default function CrmPage() {
     fetchCompanies()
   }, [fetchCompanies])
 
+  // Sync URL -> state on browser back/forward
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    const company = searchParams.get("company")
+    if (tab) {
+      setActiveTab(tab)
+    } else if (company) {
+      setActiveTab("detail")
+    }
+    setSelectedCompanyId(company)
+  }, [searchParams])
+
   const handleCardClick = useCallback((companyId: string) => {
     setSelectedCompanyId(companyId)
     setActiveTab("detail")
-  }, [])
+    updateUrl({ tab: "detail", company: companyId })
+  }, [updateUrl])
 
   const handleCompanyUpdate = useCallback(
     (updated: Company) => {
@@ -176,7 +222,11 @@ export default function CrmPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value)}
+        onValueChange={(value) => {
+          setActiveTab(value)
+          const tab = String(value)
+          updateUrl({ tab, ...(tab !== "detail" ? { company: null } : {}) })
+        }}
       >
         <TabsList>
           <TabsTrigger value="pipeline">パイプライン</TabsTrigger>
@@ -207,7 +257,10 @@ export default function CrmPage() {
             companies={companies}
             loading={loading}
             selectedCompanyId={selectedCompanyId}
-            onSelectCompany={setSelectedCompanyId}
+            onSelectCompany={(id) => {
+              setSelectedCompanyId(id)
+              updateUrl({ company: id })
+            }}
             onCompanyUpdate={handleCompanyUpdate}
           />
         </TabsContent>
@@ -234,6 +287,7 @@ function PipelineView({
   onCardClick: (id: string) => void
 }) {
   const [showInactive, setShowInactive] = useState(false)
+  const [expandedColumns, setExpandedColumns] = useState<Set<string>>(new Set())
 
   const columnData = useMemo(() => {
     const map: Record<string, Company[]> = {}
@@ -258,7 +312,8 @@ function PipelineView({
       <div className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-5 lg:overflow-visible">
         {PIPELINE_STATUSES.map((status) => {
           const items = columnData[status] ?? []
-          const display = items.slice(0, MAX_CARDS_PER_COLUMN)
+          const isExpanded = expandedColumns.has(status)
+          const visibleItems = isExpanded ? items : items.slice(0, MAX_CARDS_PER_COLUMN)
           const overflow = items.length - MAX_CARDS_PER_COLUMN
           const config = STATUS_CONFIG[status]
 
@@ -289,7 +344,7 @@ function PipelineView({
 
               {/* Cards */}
               <div className="flex flex-col gap-1.5 px-2 pb-2">
-                {display.length === 0 ? (
+                {visibleItems.length === 0 ? (
                   <div
                     className="flex flex-col items-center justify-center rounded-md border-2 border-dashed p-6 text-center"
                     style={{ borderColor: `${config.dot}30` }}
@@ -301,7 +356,7 @@ function PipelineView({
                     <span className="text-xs text-muted-foreground">企業なし</span>
                   </div>
                 ) : (
-                  display.map((company) => (
+                  visibleItems.map((company) => (
                     <PipelineCard
                       key={company.id}
                       company={company}
@@ -309,14 +364,24 @@ function PipelineView({
                     />
                   ))
                 )}
-                {overflow > 0 && (
+                {overflow > 0 && !isExpanded && (
                   <button
-                    className="rounded-md border border-dashed p-1.5 text-center text-xs text-muted-foreground transition-colors hover:bg-muted/50"
+                    className="w-full rounded-lg border border-dashed border-muted-foreground/30 p-2 text-center text-xs text-muted-foreground transition-colors hover:bg-muted/50"
+                    onClick={() => setExpandedColumns(prev => new Set(prev).add(status))}
+                  >
+                    +{overflow} 件を表示
+                  </button>
+                )}
+                {isExpanded && overflow > 0 && (
+                  <button
+                    className="w-full rounded-lg border border-dashed border-muted-foreground/30 p-2 text-center text-xs text-muted-foreground transition-colors hover:bg-muted/50"
                     onClick={() => {
-                      if (items.length > 0) onCardClick(items[0].id)
+                      const next = new Set(expandedColumns)
+                      next.delete(status)
+                      setExpandedColumns(next)
                     }}
                   >
-                    +{overflow} 件
+                    折りたたむ
                   </button>
                 )}
               </div>
@@ -387,6 +452,27 @@ const PipelineCard = React.memo(function PipelineCard({
   company: Company
   onClick: (id: string) => void
 }) {
+  const followupBadge = useMemo(() => {
+    if (!company.next_followup_at) return null
+    if (isOverdue(company.next_followup_at)) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+          <AlertCircle className="h-3 w-3" />
+          期限超過
+        </span>
+      )
+    }
+    if (isToday(company.next_followup_at)) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+          <Clock className="h-3 w-3" />
+          本日
+        </span>
+      )
+    }
+    return null
+  }, [company.next_followup_at])
+
   return (
     <button
       className="flex flex-col gap-1 rounded-md border bg-card p-2.5 text-left shadow-sm transition-all duration-150 hover:bg-accent/50 hover:shadow-md"
@@ -406,6 +492,7 @@ const PipelineCard = React.memo(function PipelineCard({
           {truncate(company.memo, 35)}
         </span>
       )}
+      {followupBadge}
     </button>
   )
 })
@@ -425,6 +512,7 @@ function CompanyDetailView({
   onSelectCompany: (id: string | null) => void
   onCompanyUpdate: (company: Company) => void
 }) {
+  const [open, setOpen] = useState(false)
   const company = companies.find((c) => c.id === selectedCompanyId) ?? null
 
   if (loading) {
@@ -451,23 +539,66 @@ function CompanyDetailView({
 
   return (
     <div className="space-y-4">
-      {/* Company selector */}
+      {/* Company selector (Combobox) */}
       <div className="max-w-sm">
-        <Select
-          value={selectedCompanyId ?? undefined}
-          onValueChange={(val) => onSelectCompany(val != null ? String(val) : null)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="企業を選択してください" />
-          </SelectTrigger>
-          <SelectContent>
-            {companies.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            role="combobox"
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-label="企業を選択"
+            className={cn(
+              "flex h-9 w-full items-center justify-between rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none",
+              "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              !company && "text-muted-foreground"
+            )}
+          >
+            <span className="truncate">
+              {company ? company.name : "企業を選択..."}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </PopoverTrigger>
+          <PopoverContent className="w-[var(--anchor-width)] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="会社名・メール・電話で検索..." />
+              <CommandList>
+                <CommandEmpty>該当する企業がありません</CommandEmpty>
+                <CommandGroup>
+                  {companies.map((c) => (
+                    <CommandItem
+                      key={c.id}
+                      value={c.id}
+                      keywords={[c.name, c.email ?? "", c.phone ?? ""].filter(Boolean)}
+                      onSelect={(val) => {
+                        onSelectCompany(val)
+                        setOpen(false)
+                      }}
+                      data-checked={selectedCompanyId === c.id ? "true" : undefined}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedCompanyId === c.id
+                            ? "opacity-100"
+                            : "opacity-0"
+                        )}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate">{c.name}</div>
+                        {c.email && (
+                          <div className="truncate text-xs text-muted-foreground">
+                            {c.email}
+                          </div>
+                        )}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {!company ? (

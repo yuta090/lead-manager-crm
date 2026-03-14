@@ -10,8 +10,8 @@ import {
   type ColumnFiltersState,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Table,
   TableBody,
@@ -32,10 +32,69 @@ interface DataTableProps {
 
 export function DataTable({ columns, data, loading }: DataTableProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Read initial values from URL
   const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [globalFilter, setGlobalFilter] = useState("")
-  const [emailOnly, setEmailOnly] = useState(false)
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
+    const statusParam = searchParams.get("status")
+    if (statusParam) {
+      return [{ id: "status", value: statusParam.split(",") }]
+    }
+    return []
+  })
+  const [globalFilter, setGlobalFilter] = useState(() => searchParams.get("q") || "")
+  const [emailOnly, setEmailOnly] = useState(() => searchParams.get("hasEmail") === "1")
+
+  // URL sync helper
+  const updateUrl = useCallback((params: Record<string, string | null>) => {
+    const newParams = new URLSearchParams(searchParams.toString())
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined) newParams.delete(key)
+      else newParams.set(key, value)
+    })
+    const qs = newParams.toString()
+    router.replace(qs ? `/companies?${qs}` : "/companies", { scroll: false })
+  }, [searchParams, router])
+
+  // Wrap setGlobalFilter with URL sync (debounced)
+  const handleGlobalFilterChange = useCallback((value: string) => {
+    setGlobalFilter(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      updateUrl({ q: value || null })
+    }, 300)
+  }, [updateUrl])
+
+  // Wrap setEmailOnly with URL sync
+  const handleEmailOnlyChange = useCallback((value: boolean) => {
+    setEmailOnly(value)
+    updateUrl({ hasEmail: value ? "1" : null })
+  }, [updateUrl])
+
+  // Sync column filter changes (status) to URL
+  const handleColumnFiltersChange = useCallback((updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)) => {
+    setColumnFilters((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater
+      const statusFilter = next.find((f) => f.id === "status")
+      const statusValues = statusFilter?.value as string[] | undefined
+      // Use setTimeout to batch the URL update outside of the render cycle
+      setTimeout(() => {
+        updateUrl({
+          status: statusValues && statusValues.length > 0 ? statusValues.join(",") : null,
+        })
+      }, 0)
+      return next
+    })
+  }, [updateUrl])
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
 
   const filteredData = useMemo(
     () => emailOnly ? data.filter((c) => c.email) : data,
@@ -51,7 +110,7 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
       globalFilter,
     },
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: handleColumnFiltersChange,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -88,9 +147,9 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
       <DataTableToolbar
         table={table}
         globalFilter={globalFilter}
-        setGlobalFilter={setGlobalFilter}
+        setGlobalFilter={handleGlobalFilterChange}
         emailOnly={emailOnly}
-        setEmailOnly={setEmailOnly}
+        setEmailOnly={handleEmailOnlyChange}
         data={filteredData}
       />
 
@@ -118,7 +177,7 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer transition-colors hover:bg-muted/50"
-                  onClick={() => router.push(`/crm?company=${row.original.id}`)}
+                  onClick={() => router.push(`/crm?tab=detail&company=${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
