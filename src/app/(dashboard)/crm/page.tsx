@@ -22,7 +22,7 @@ import {
   CalendarCheck,
 } from "lucide-react"
 import { toast } from "sonner"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { formatDate, toLocalDateString, addDays } from "@/lib/format"
 import { useGenre } from "@/components/layout/genre-provider"
@@ -205,6 +205,7 @@ export default function CrmPage() {
         <TabsContent value="detail">
           <CompanyDetailView
             companies={companies}
+            loading={loading}
             selectedCompanyId={selectedCompanyId}
             onSelectCompany={setSelectedCompanyId}
             onCompanyUpdate={handleCompanyUpdate}
@@ -214,6 +215,7 @@ export default function CrmPage() {
         <TabsContent value="followup">
           <FollowUpView
             companies={companies}
+            loading={loading}
             onCardClick={handleCardClick}
           />
         </TabsContent>
@@ -412,16 +414,36 @@ const PipelineCard = React.memo(function PipelineCard({
 
 function CompanyDetailView({
   companies,
+  loading,
   selectedCompanyId,
   onSelectCompany,
   onCompanyUpdate,
 }: {
   companies: Company[]
+  loading: boolean
   selectedCompanyId: string | null
   onSelectCompany: (id: string | null) => void
   onCompanyUpdate: (company: Company) => void
 }) {
   const company = companies.find((c) => c.id === selectedCompanyId) ?? null
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-10 max-w-sm animate-pulse rounded bg-muted" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="space-y-4">
+            <div className="h-48 animate-pulse rounded-lg bg-muted" />
+            <div className="h-64 animate-pulse rounded-lg bg-muted" />
+          </div>
+          <div className="space-y-4">
+            <div className="h-48 animate-pulse rounded-lg bg-muted" />
+            <div className="h-48 animate-pulse rounded-lg bg-muted" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (companies.length === 0) {
     return <EmptyState title="企業データがありません" />
@@ -883,12 +905,19 @@ function ActivityForm({
 function ActivityHistory({ companyId, refreshKey }: { companyId: string; refreshKey: number }) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const activityRequestIdRef = useRef(0)
+  const isInitialLoadRef = useRef(true)
 
   const fetchActivities = useCallback(async () => {
     const requestId = ++activityRequestIdRef.current
-    setLoading(true)
-    setActivities([])
+    const isInitial = isInitialLoadRef.current
+
+    if (isInitial) {
+      setLoading(true)
+    } else {
+      setIsRefreshing(true)
+    }
     const supabase = createClient()
     const { data, error } = await supabase
       .from("lm_activities")
@@ -899,11 +928,27 @@ function ActivityHistory({ companyId, refreshKey }: { companyId: string; refresh
     if (activityRequestIdRef.current !== requestId) return
     if (error) {
       toast.error("活動履歴の取得に失敗しました")
-      setLoading(false)
+      if (isInitial) {
+        setLoading(false)
+      } else {
+        setIsRefreshing(false)
+      }
       return
     }
     setActivities(data ?? [])
-    setLoading(false)
+    if (isInitial) {
+      isInitialLoadRef.current = false
+      setLoading(false)
+    } else {
+      setIsRefreshing(false)
+    }
+  }, [companyId])
+
+  // Reset initial load flag and clear stale state when company changes
+  useEffect(() => {
+    isInitialLoadRef.current = true
+    setActivities([])
+    setIsRefreshing(false)
   }, [companyId])
 
   useEffect(() => {
@@ -931,7 +976,12 @@ function ActivityHistory({ companyId, refreshKey }: { companyId: string; refresh
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">活動履歴</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-sm">
+          活動履歴
+          {isRefreshing && (
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -990,9 +1040,11 @@ function ActivityHistory({ companyId, refreshKey }: { companyId: string; refresh
 
 function FollowUpView({
   companies,
+  loading,
   onCardClick,
 }: {
   companies: Company[]
+  loading: boolean
   onCardClick: (id: string) => void
 }) {
   const { overdue, today, upcoming } = useMemo(() => {
@@ -1033,6 +1085,19 @@ function FollowUpView({
 
   const noFollowUps =
     overdue.length === 0 && today.length === 0 && upcoming.length === 0
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="space-y-2">
+            <div className="h-5 w-40 animate-pulse rounded bg-muted" />
+            <div className="h-24 animate-pulse rounded-lg bg-muted" />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   if (noFollowUps) {
     return (
