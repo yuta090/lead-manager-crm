@@ -28,9 +28,10 @@ interface DataTableProps {
   columns: ColumnDef<Company, unknown>[]
   data: Company[]
   loading: boolean
+  onCompanyAdded?: () => void
 }
 
-export function DataTable({ columns, data, loading }: DataTableProps) {
+export function DataTable({ columns, data, loading, onCompanyAdded }: DataTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -213,6 +214,7 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
         globalFilter={globalFilter}
         setGlobalFilter={handleGlobalFilterChange}
         emailOnly={emailOnly}
+          onCompanyAdded={onCompanyAdded}
         setEmailOnly={handleEmailOnlyChange}
         data={filteredData}
       />

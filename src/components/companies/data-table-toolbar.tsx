@@ -1,7 +1,11 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import type { Table as TanstackTable } from "@tanstack/react-table"
+import { z } from "zod"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "sonner"
 import {
   Search,
   Upload,
@@ -9,9 +13,14 @@ import {
   Building2,
   ChevronDown,
   X,
+  Plus,
 } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { useGenre } from "@/components/layout/genre-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Popover,
@@ -38,6 +47,7 @@ interface DataTableToolbarProps {
   emailOnly: boolean
   setEmailOnly: (value: boolean) => void
   data: Company[]
+  onCompanyAdded?: () => void
 }
 
 function StatusFilterPopover({
@@ -174,6 +184,138 @@ function CsvImportDialog() {
   )
 }
 
+const addCompanySchema = z.object({
+  name: z.string().trim().min(1, "会社名は必須です"),
+  email: z.string().email("有効なメールアドレスを入力").or(z.literal("")).optional(),
+  phone: z.string().optional(),
+  prefecture: z.string().optional(),
+  memo: z.string().optional(),
+})
+
+type AddCompanyFormData = z.infer<typeof addCompanySchema>
+
+function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded?: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const { currentGenre } = useGenre()
+
+  const form = useForm<AddCompanyFormData>({
+    resolver: zodResolver(addCompanySchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      prefecture: "",
+      memo: "",
+    },
+  })
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen)
+    if (isOpen) {
+      form.reset()
+    }
+  }
+
+  const onSubmit = async (data: AddCompanyFormData) => {
+    if (!currentGenre) {
+      toast.error("ジャンルが選択されていません")
+      return
+    }
+
+    setSaving(true)
+    try {
+      const supabase = createClient()
+
+      const insertData = {
+        genre_id: currentGenre.id,
+        name: data.name.trim(),
+        email: data.email?.trim() || null,
+        phone: data.phone?.trim() || null,
+        prefecture: data.prefecture?.trim() || null,
+        memo: data.memo?.trim() || null,
+        status: "新規" as const,
+        priority: "通常" as const,
+        source: "手動登録",
+        scraping_status: "未処理",
+        form_found: false,
+      }
+
+      const { error } = await supabase.from("lm_companies").insert(insertData)
+
+      if (error) {
+        toast.error("企業の追加に失敗しました")
+        return
+      }
+
+      toast.success("企業を追加しました")
+      setOpen(false)
+      onCompanyAdded?.()
+    } catch (e) {
+      toast.error("企業の追加に失敗しました")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger
+        render={
+          <Button variant="outline" size="sm" className="h-8" />
+        }
+      >
+        <Plus className="h-3.5 w-3.5" />
+        企業追加
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>企業追加</DialogTitle>
+          <DialogDescription>
+            新しい企業を手動で追加します。
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="add-name">会社名 *</Label>
+            <Input id="add-name" placeholder="株式会社サンプル" {...form.register("name")} />
+            {form.formState.errors.name && (
+              <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="add-email">メールアドレス</Label>
+            <Input id="add-email" type="email" placeholder="info@example.co.jp" {...form.register("email")} />
+            {form.formState.errors.email && (
+              <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="add-phone">電話番号</Label>
+            <Input id="add-phone" placeholder="03-1234-5678" {...form.register("phone")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="add-prefecture">都道府県</Label>
+            <Input id="add-prefecture" placeholder="東京都" {...form.register("prefecture")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="add-memo">メモ</Label>
+            <Textarea id="add-memo" placeholder="備考があれば入力" {...form.register("memo")} rows={3} />
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="outline" />}>
+              キャンセル
+            </DialogClose>
+            <Button type="submit" disabled={saving}>
+              {saving ? "保存中..." : "追加"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function downloadCsv(data: Company[]) {
   const headers = [
     "会社名",
@@ -222,6 +364,7 @@ export function DataTableToolbar({
   emailOnly,
   setEmailOnly,
   data,
+  onCompanyAdded,
 }: DataTableToolbarProps) {
   const filteredCount = table.getFilteredRowModel().rows.length
 
@@ -254,6 +397,8 @@ export function DataTableToolbar({
           <Building2 className="h-3.5 w-3.5" />
           <span>{filteredCount} 社</span>
         </div>
+
+        <AddCompanyDialog onCompanyAdded={onCompanyAdded} />
 
         <CsvImportDialog />
 
