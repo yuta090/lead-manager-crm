@@ -28,12 +28,17 @@ interface DataTableProps {
   columns: ColumnDef<Company, unknown>[]
   data: Company[]
   loading: boolean
+  onCompanyAdded?: () => void
 }
 
-export function DataTable({ columns, data, loading }: DataTableProps) {
+export function DataTable({ columns, data, loading, onCompanyAdded }: DataTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isSyncingFromUrl = useRef(false)
+  const isInitialMount = useRef(true)
+  // Track the last query string we pushed to avoid infinite loops
+  const lastPushedQs = useRef(searchParams.toString())
 
   // Read initial values from URL
   const [sorting, setSorting] = useState<SortingState>([])
@@ -47,47 +52,102 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
   const [globalFilter, setGlobalFilter] = useState(() => searchParams.get("q") || "")
   const [emailOnly, setEmailOnly] = useState(() => searchParams.get("hasEmail") === "1")
 
-  // URL sync helper
-  const updateUrl = useCallback((params: Record<string, string | null>) => {
-    const newParams = new URLSearchParams(searchParams.toString())
-    Object.entries(params).forEach(([key, value]) => {
-      if (value === null || value === undefined) newParams.delete(key)
-      else newParams.set(key, value)
+  // Refs to track latest state for URL building
+  const globalFilterRef = useRef(globalFilter)
+  const emailOnlyRef = useRef(emailOnly)
+  const columnFiltersRef = useRef(columnFilters)
+  globalFilterRef.current = globalFilter
+  emailOnlyRef.current = emailOnly
+  columnFiltersRef.current = columnFilters
+
+  // Fix #3: Build URL from current state values, not from stale searchParams.
+  // Compares against lastPushedQs ref instead of searchParams to avoid
+  // stale closures and dependency-triggered re-renders.
+  const syncUrlFromState = useCallback((
+    q: string,
+    hasEmail: boolean,
+    filters: ColumnFiltersState
+  ) => {
+    const params = new URLSearchParams()
+    if (q) params.set("q", q)
+    if (hasEmail) params.set("hasEmail", "1")
+    const statusFilter = filters.find((f) => f.id === "status")
+    const statuses = statusFilter?.value as string[] | undefined
+    if (statuses && statuses.length > 0) params.set("status", statuses.join(","))
+    const newQs = params.toString()
+
+    // Prevent unnecessary URL updates (avoids loops)
+    if (newQs === lastPushedQs.current) return
+
+    lastPushedQs.current = newQs
+    router.replace(newQs ? `/companies?${newQs}` : "/companies", { scroll: false })
+  }, [router])
+
+  // Fix #4: Sync URL -> state on browser back/forward
+  useEffect(() => {
+    // Skip initial mount — state is already initialized from URL
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+
+    const currentQs = searchParams.toString()
+    // If the URL matches what we last pushed, this is our own update — skip
+    if (currentQs === lastPushedQs.current) return
+
+    const q = searchParams.get("q") || ""
+    const hasEmail = searchParams.get("hasEmail") === "1"
+    const status = searchParams.get("status")
+
+    isSyncingFromUrl.current = true
+    lastPushedQs.current = currentQs
+
+    setGlobalFilter(q)
+    setEmailOnly(hasEmail)
+    if (status) {
+      setColumnFilters([{ id: "status", value: status.split(",") }])
+    } else {
+      setColumnFilters([])
+    }
+
+    // Reset flag after React processes state updates in the next microtask
+    Promise.resolve().then(() => {
+      isSyncingFromUrl.current = false
     })
-    const qs = newParams.toString()
-    router.replace(qs ? `/companies?${qs}` : "/companies", { scroll: false })
-  }, [searchParams, router])
+  }, [searchParams])
 
   // Wrap setGlobalFilter with URL sync (debounced)
   const handleGlobalFilterChange = useCallback((value: string) => {
     setGlobalFilter(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      updateUrl({ q: value || null })
+      if (!isSyncingFromUrl.current) {
+        syncUrlFromState(value, emailOnlyRef.current, columnFiltersRef.current)
+      }
     }, 300)
-  }, [updateUrl])
+  }, [syncUrlFromState])
 
   // Wrap setEmailOnly with URL sync
   const handleEmailOnlyChange = useCallback((value: boolean) => {
     setEmailOnly(value)
-    updateUrl({ hasEmail: value ? "1" : null })
-  }, [updateUrl])
+    if (!isSyncingFromUrl.current) {
+      syncUrlFromState(globalFilterRef.current, value, columnFiltersRef.current)
+    }
+  }, [syncUrlFromState])
 
-  // Sync column filter changes (status) to URL
+  // Fix #5: Column filter changes — pure state updater without side effects
   const handleColumnFiltersChange = useCallback((updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)) => {
     setColumnFilters((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater
-      const statusFilter = next.find((f) => f.id === "status")
-      const statusValues = statusFilter?.value as string[] | undefined
-      // Use setTimeout to batch the URL update outside of the render cycle
-      setTimeout(() => {
-        updateUrl({
-          status: statusValues && statusValues.length > 0 ? statusValues.join(",") : null,
-        })
-      }, 0)
       return next
     })
-  }, [updateUrl])
+  }, [])
+
+  // Fix #5: Sync column filter state changes to URL via useEffect
+  useEffect(() => {
+    if (isSyncingFromUrl.current) return
+    syncUrlFromState(globalFilterRef.current, emailOnlyRef.current, columnFilters)
+  }, [columnFilters, syncUrlFromState])
 
   // Cleanup debounce on unmount
   useEffect(() => {
@@ -151,6 +211,7 @@ export function DataTable({ columns, data, loading }: DataTableProps) {
         emailOnly={emailOnly}
         setEmailOnly={handleEmailOnlyChange}
         data={filteredData}
+        onCompanyAdded={onCompanyAdded}
       />
 
       <div className="rounded-lg border">

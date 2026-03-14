@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { Suspense, useEffect, useState, useRef, useCallback } from "react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { useGenre } from "@/components/layout/genre-provider"
@@ -17,27 +17,29 @@ export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchCompanies = useCallback(async () => {
     if (!currentGenre) return
     const requestId = ++requestIdRef.current
-    ;(async () => {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from("lm_companies")
-        .select("id, name, status, email, phone, prefecture, priority, address, website, created_at")
-        .eq("genre_id", currentGenre.id)
-        .order("created_at", { ascending: false })
+    setLoading(true)
+    const { data, error } = await supabase
+      .from("lm_companies")
+      .select("id, name, status, email, phone, prefecture, priority, address, website, created_at")
+      .eq("genre_id", currentGenre.id)
+      .order("created_at", { ascending: false })
 
-      if (requestIdRef.current !== requestId) return
-      if (error) {
-        toast.error("企業データの取得に失敗しました")
-        setLoading(false)
-        return
-      }
-      setCompanies((data as Company[]) ?? [])
+    if (requestIdRef.current !== requestId) return
+    if (error) {
+      toast.error("企業データの取得に失敗しました")
       setLoading(false)
-    })()
+      return
+    }
+    setCompanies((data as Company[]) ?? [])
+    setLoading(false)
   }, [currentGenre])
+
+  useEffect(() => {
+    fetchCompanies()
+  }, [fetchCompanies])
 
   if (genreLoading) {
     return (
@@ -63,7 +65,9 @@ export default function CompaniesPage() {
         </p>
       </div>
 
-      <DataTable columns={columns} data={companies} loading={loading} />
+      <Suspense fallback={<LoadingSpinner />}>
+        <DataTable columns={columns} data={companies} loading={loading} onCompanyAdded={fetchCompanies} />
+      </Suspense>
     </div>
   )
 }
