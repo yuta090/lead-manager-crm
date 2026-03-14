@@ -1,10 +1,14 @@
+import Link from "next/link"
+
 import { Card, CardContent } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 type KpiCardProps = {
   label: string
   value: string | number
   color?: string
   icon?: React.ReactNode
+  href?: string
 }
 
 function formatValue(value: string | number): string {
@@ -14,14 +18,21 @@ function formatValue(value: string | number): string {
   return value
 }
 
-export function KpiCard({ label, value, color, icon }: KpiCardProps) {
-  return (
-    <Card className="relative overflow-hidden transition-shadow duration-200 hover:shadow-md">
+export function KpiCard({ label, value, color, icon, href }: KpiCardProps) {
+  const card = (
+    <Card
+      className={cn(
+        "relative overflow-hidden transition-all duration-200 hover:shadow-md",
+        href && "cursor-pointer hover:border-primary/30"
+      )}
+    >
       {/* Bottom accent border */}
       {color && (
         <div
           className="absolute bottom-0 left-0 right-0 h-0.5"
-          style={{ background: `linear-gradient(90deg, ${color}, ${color}88)` }}
+          style={{
+            background: `linear-gradient(90deg, ${color}, ${color}88)`,
+          }}
         />
       )}
       <CardContent className="flex items-center gap-3 p-4">
@@ -46,6 +57,19 @@ export function KpiCard({ label, value, color, icon }: KpiCardProps) {
       </CardContent>
     </Card>
   )
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        {card}
+      </Link>
+    )
+  }
+
+  return card
 }
 
 export function KpiGrid({ children }: { children: React.ReactNode }) {

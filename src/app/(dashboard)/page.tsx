@@ -251,30 +251,35 @@ export default function HomePage() {
             value={stats.total}
             color="#2563EB"
             icon={<Building2 className="h-5 w-5" style={{ color: "#2563EB" }} />}
+            href="/companies"
           />
           <KpiCard
             label="メールあり"
             value={stats.withEmail}
             color="#0284C7"
             icon={<Mail className="h-5 w-5" style={{ color: "#0284C7" }} />}
+            href="/companies?hasEmail=1"
           />
           <KpiCard
             label="反応あり"
             value={stats.engaged}
             color="#D97706"
             icon={<MessageSquare className="h-5 w-5" style={{ color: "#D97706" }} />}
+            href="/crm?tab=pipeline&status=反応あり"
           />
           <KpiCard
             label="商談中"
             value={stats.negotiating}
             color="#F97316"
             icon={<Handshake className="h-5 w-5" style={{ color: "#F97316" }} />}
+            href="/crm?tab=pipeline&status=商談中"
           />
           <KpiCard
             label="成約"
             value={stats.closed}
             color="#059669"
             icon={<Trophy className="h-5 w-5" style={{ color: "#059669" }} />}
+            href="/crm?tab=pipeline&status=成約"
           />
         </KpiGrid>
       )}
