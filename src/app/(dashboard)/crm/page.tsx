@@ -101,17 +101,34 @@ function truncate(text: string | null, max: number): string {
 export default function CrmPage() {
   const { currentGenre, loading: genreLoading } = useGenre()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const supabase = createClient()
   const requestIdRef = useRef(0)
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
+
+  // URL state: tab, company
+  const tabFromUrl = searchParams.get("tab") as "pipeline" | "detail" | "followup" | null
+  const companyFromUrl = searchParams.get("company")
+
   const [activeTab, setActiveTab] = useState<string | number>(() => {
-    const companyParam = searchParams.get("company")
-    return companyParam ? "detail" : "pipeline"
+    if (tabFromUrl) return tabFromUrl
+    return companyFromUrl ? "detail" : "pipeline"
   })
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(() => {
-    return searchParams.get("company")
+    return companyFromUrl
   })
+
+  // URL sync helper
+  const updateUrl = useCallback((params: Record<string, string | null>) => {
+    const newParams = new URLSearchParams(searchParams.toString())
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined) newParams.delete(key)
+      else newParams.set(key, value)
+    })
+    const qs = newParams.toString()
+    router.replace(qs ? `/crm?${qs}` : "/crm", { scroll: false })
+  }, [searchParams, router])
 
   const fetchCompanies = useCallback(async () => {
     if (!currentGenre) return
@@ -136,10 +153,23 @@ export default function CrmPage() {
     fetchCompanies()
   }, [fetchCompanies])
 
+  // Sync URL -> state on browser back/forward
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    const company = searchParams.get("company")
+    if (tab) {
+      setActiveTab(tab)
+    } else if (company) {
+      setActiveTab("detail")
+    }
+    setSelectedCompanyId(company)
+  }, [searchParams])
+
   const handleCardClick = useCallback((companyId: string) => {
     setSelectedCompanyId(companyId)
     setActiveTab("detail")
-  }, [])
+    updateUrl({ tab: "detail", company: companyId })
+  }, [updateUrl])
 
   const handleCompanyUpdate = useCallback(
     (updated: Company) => {
@@ -176,7 +206,11 @@ export default function CrmPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value)}
+        onValueChange={(value) => {
+          setActiveTab(value)
+          const tab = String(value)
+          updateUrl({ tab, ...(tab !== "detail" ? { company: null } : {}) })
+        }}
       >
         <TabsList>
           <TabsTrigger value="pipeline">パイプライン</TabsTrigger>
@@ -207,7 +241,10 @@ export default function CrmPage() {
             companies={companies}
             loading={loading}
             selectedCompanyId={selectedCompanyId}
-            onSelectCompany={setSelectedCompanyId}
+            onSelectCompany={(id) => {
+              setSelectedCompanyId(id)
+              updateUrl({ company: id })
+            }}
             onCompanyUpdate={handleCompanyUpdate}
           />
         </TabsContent>
