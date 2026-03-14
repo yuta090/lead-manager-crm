@@ -22,7 +22,7 @@ import {
   CalendarCheck,
 } from "lucide-react"
 import { toast } from "sonner"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { formatDate, toLocalDateString, addDays } from "@/lib/format"
 import { useGenre } from "@/components/layout/genre-provider"
@@ -944,9 +944,11 @@ function ActivityHistory({ companyId, refreshKey }: { companyId: string; refresh
     }
   }, [companyId])
 
-  // Reset initial load flag when company changes
+  // Reset initial load flag and clear stale state when company changes
   useEffect(() => {
     isInitialLoadRef.current = true
+    setActivities([])
+    setIsRefreshing(false)
   }, [companyId])
 
   useEffect(() => {
