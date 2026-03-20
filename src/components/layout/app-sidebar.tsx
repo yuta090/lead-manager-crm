@@ -9,6 +9,7 @@ import {
   Settings,
   Home,
   ChevronDown,
+  MessageSquareText,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -48,6 +49,7 @@ const NAV_GROUPS = [
       { title: "メール配信", href: "/campaigns", icon: Mail },
       { title: "CRM", href: "/crm", icon: Users },
       { title: "ダッシュボード", href: "/dashboard", icon: BarChart3 },
+      { title: "プロンプト管理", href: "/prompts", icon: MessageSquareText },
     ],
   },
   {

@@ -129,6 +129,43 @@ export type ImportLog = {
   imported_at: string
 }
 
+export type PromptVersion = {
+  id: string
+  genre_id: string
+  name: string
+  description: string | null
+  system_prompt: string
+  user_prompt_template: string
+  model_default: string
+  provider_default: LLMProvider
+  is_active: boolean
+  temperature: number
+  max_tokens: number
+  created_at: string
+  updated_at: string
+}
+
+export type GenerationLog = {
+  id: string
+  prompt_version_id: string
+  company_id: string | null
+  provider: string
+  model: string
+  company_intel: Record<string, unknown> | null
+  sender_profile: Record<string, unknown> | null
+  generated_subject: string | null
+  generated_body: string | null
+  variant: "personalized" | "static"
+  fallback_reason: string | null
+  quality_score: number | null
+  latency_ms: number | null
+  source: "scraper" | "test_ui"
+  test_session_id: string | null
+  created_at: string
+}
+
+export type LLMProvider = "openai" | "anthropic"
+
 export const TABLE_PREFIX = "lm_" as const
 
 export const STATUS_ORDER: CompanyStatus[] = [
